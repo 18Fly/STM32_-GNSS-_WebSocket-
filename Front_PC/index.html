@@ -1,0 +1,190 @@
+<!doctype html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no, width=device-width">
+    <link rel="stylesheet" href="https://a.amap.com/jsapi_demos/static/demo-center/css/demo-center.css" />
+    <style>
+        html,
+        body,
+        #container {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+    <title>GNSS_Web上位显示</title>
+</head>
+
+<body>
+    <div id="container"></div>
+    <div class="input-card" style="width:16rem">
+        <h4>创建、销毁地图</h4>
+        <div id="btns">
+            <div class="input-item">
+                <button id="create-btn" class="btn" style="margin-right:1rem;">创建地图</button>
+                <button id="destroy-btn" class="btn">销毁地图</button>
+            </div>
+        </div>
+    </div>
+    <script type="text/javascript">
+        window._AMapSecurityConfig = {
+            securityJsCode: "高德API_Token,请自行申请",
+        };
+    </script>
+    <script type="text/javascript"
+        src="https://webapi.amap.com/maps?v=2.0&key=高德API_Key&plugin=AMap.PolylineEditor"></script>
+    <script src="https://a.amap.com/jsapi_demos/static/demo-center/js/demoutils.js"></script>
+    <script>
+        // ⚠️：请尽量不要进行地图的重新创建和销毁，如果有图层的隐藏和显示需求，请使用图层的 show/hide 方法。
+        var map = null, marker = null, polyline = null;
+        var lng, lag = 0;
+        var Flag = true;
+        var path = [];
+        const Server_IP = "ws://0.0.0.0:5555"; //此处设置ESP8266在局域网内的IP地址
+        function createMap() {
+            map = new AMap.Map('container', {
+                center: [lng, lag],
+                viewMode: '3D',
+                pitch: 60,
+                rotation: -30,
+                // 隐藏默认楼块
+                features: ['bg', 'road', 'point', 'building'],
+                mapStyle: 'amap://styles/light',
+                layers: [
+                    // 高德默认标准图层
+                    new AMap.TileLayer.Satellite(),
+                    // 楼块图层
+                    new AMap.Buildings({
+                        zooms: [16, 18],
+                        zIndex: 10,
+                        heightFactor: 2 //2倍于默认高度，3D下有效
+                    })
+                ],
+                zoom: 18,
+                zoomEnable: true
+            });
+
+            marker = new AMap.Marker({
+                position: new AMap.LngLat(lng, lag),
+                icon: new AMap.Icon({
+                    // 图标尺寸
+                    size: new AMap.Size(12, 12),
+                    // 图标的取图地址
+                    image: 'https://a.amap.com/jsapi_demos/static/demo-center/marker/marker.png',
+                    // 图标所用图片大小
+                    imageSize: new AMap.Size(12, 12),
+                }),
+                // offset: new AMap.Pixel(0, 0),
+                anchor: 'center'
+            });
+
+            marker.setMap(map);
+            // console.log(marker.getPosition());
+
+
+            log.success("创建地图成功");
+        }
+
+        function destroyMap() {
+            map && map.destroy();
+            ws.close();
+            ws = null;
+            log.info("地图已销毁");
+        }
+
+        function updateMarkerFixed() {
+            fetch(`https://restapi.amap.com/v3/assistant/coordinate/convert?locations=${lng},${lag}&coordsys=gps&output=xml&key=9577414dd827dc990acb8034db3dd08f`, {
+                "referrerPolicy": "strict-origin-when-cross-origin",
+                "body": null,
+                "method": "GET"
+            }).then(resp => {
+                return resp.text();
+            }).then(data => {
+                let parser = new DOMParser();
+                let xmlDoc = parser.parseFromString(data, "text/xml");
+                let locations = xmlDoc.querySelector('locations').textContent.split(',');
+                lng = parseFloat(locations[0]);
+                lag = parseFloat(locations[1]);
+
+                marker && marker.setPosition(new AMap.LngLat(lng, lag));
+
+                path.push([lng, lag]);
+                console.log(path);
+                polyline.setPath(path);
+            });
+
+        }
+
+        //获取固定经纬度
+        function getFixedLocationAndCreateMap() {
+            Flag = false;
+            fetch(`https://restapi.amap.com/v3/assistant/coordinate/convert?locations=${lng},${lag}&coordsys=gps&output=xml&key=9577414dd827dc990acb8034db3dd08f`, {
+                "referrerPolicy": "strict-origin-when-cross-origin",
+                "body": null,
+                "method": "GET"
+            }).then(resp => {
+                return resp.text();
+            }).then(data => {
+                let parser = new DOMParser();
+                let xmlDoc = parser.parseFromString(data, "text/xml");
+                let locations = xmlDoc.querySelector('locations').textContent.split(',');
+                lng = parseFloat(locations[0]);
+                lag = parseFloat(locations[1]);
+                path.push([lng, lag]);
+
+                //初始化地图
+                createMap();
+                drawPath();
+            });
+        }
+
+        function drawPath() {
+            polyline = new AMap.Polyline({
+                path: path,
+                isOutline: true,
+                outlineColor: '#ffeeff',
+                borderWeight: 3,
+                strokeColor: "#3366FF",
+                strokeOpacity: 1,
+                strokeWeight: 6,
+                // 折线样式还支持 'dashed'
+                strokeStyle: "solid",
+                // strokeStyle是dashed时有效
+                strokeDasharray: [10, 5],
+                lineJoin: 'round',
+                lineCap: 'round',
+                zIndex: 50,
+            })
+            map.add(polyline);
+            StartFlag = false;
+        }
+
+        const ws = new WebSocket(Server_IP);
+
+        ws.onmessage = event => {
+            let data = event.data.split(',');
+
+            let lngs = data[1].split('.');
+            let lags = data[0].split('.');
+
+            let lng_l = parseFloat(lngs[0]);
+            let lng_r = parseFloat((parseFloat(lngs[1]) / 100000 / 60.0).toFixed(6));
+            lng = lng_l + lng_r;
+
+            let lag_l = parseFloat(lags[0]);
+            let lag_r = parseFloat((parseFloat(lags[1]) / 100000 / 60.0).toFixed(6));
+            lag = lag_l + lag_r;
+
+            Flag && getFixedLocationAndCreateMap();
+            updateMarkerFixed();
+        }
+
+        //绑定创建、销毁事件
+        document.querySelector("#create-btn").onclick = getFixedLocationAndCreateMap;
+        document.querySelector("#destroy-btn").onclick = destroyMap;
+    </script>
+</body>
+
+</html>
