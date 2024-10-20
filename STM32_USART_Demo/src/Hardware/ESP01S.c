@@ -92,8 +92,8 @@ void SendWsAccept(void)
         memset(SendBuf, 0, 129);
         repeatWSRaw((char *)Token, (char *)SendBuf);
         // Delay_ms(350);
-        ESP01S_SendString("AT+CIPSEND=0,129\r\n");
-        Delay_us(500);
+        // ESP01S_SendString("AT+CIPSEND=0,129\r\n");
+        // Delay_us(500);
         ESP01S_SendArray(SendBuf, 129);
         // Delay_ms(300);
         Send_Flag  = true;
@@ -110,8 +110,8 @@ void SendLngLat(void)
         strcat((char *)SendBuf2, ",");
         strcat((char *)SendBuf2, (char *)RxData.Longitude);
         // Delay_ms(350);
-        ESP01S_SendString("AT+CIPSEND=0,24\r\n");
-        Delay_us(500);
+        // ESP01S_SendString("AT+CIPSEND=0,24\r\n");
+        // Delay_us(500);
         ESP01S_SendArray(SendBuf2, 24);
         SendCount = 0;
         // Delay_ms(300);

@@ -21,10 +21,14 @@ int main(void)
     Serial_Init();
     ESP01S_Init();
 
-    Delay_s(2);
-    ESP01S_SendString("AT+CIPMUX=1\r\n");
+    Delay_s(1);
+    ESP01S_SendString("AT+CIPMUX=0\r\n");
     Delay_ms(500);
-    ESP01S_SendString("AT+CIPSERVER=1,2568\r\n");
+    ESP01S_SendString("AT+CIPSTART=\"TCP\",\"192.168.123.193\",5555\r\n");
+    Delay_ms(500);
+    ESP01S_SendString("AT+CIPMODE=1\r\n");
+    Delay_ms(500);
+    ESP01S_SendString("AT+CIPSEND\r\n");
     // Delay_ms(100);
 
     OLED_ShowString(1, 1, "G N S S");
