@@ -34,7 +34,7 @@ void SHA1Decode(uint32_t *output, const uint8_t *input, uint32_t len);
 // Base64 编码函数
 void Base64_Encode(const unsigned char *input, int len, char *output)
 {
-    int i = 0, j = 0;
+    int j = 0;
 
     // 每三个字节编码为四个 Base64 字符
     for (int n = 0; n < len; n += 3) {
